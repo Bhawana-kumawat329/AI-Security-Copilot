@@ -1,0 +1,57 @@
+def map_mitre_from_findings(nmap_result, cve_result):
+    techniques = []
+
+    if isinstance(nmap_result, dict):
+        open_ports = nmap_result.get("open_ports", [])
+
+        for port_info in open_ports:
+            port = port_info.get("port")
+            service = (port_info.get("service") or "").lower()
+
+            if port:
+                techniques.append({
+                    "technique_id": "T1046",
+                    "technique_name": "Network Service Discovery",
+                    "tactic": "Discovery",
+                    "reason": f"Open port {port} detected during Nmap scan"
+                })
+
+            if service in ["ssh", "rdp", "telnet", "smb", "microsoft-ds"]:
+                techniques.append({
+                    "technique_id": "T1021",
+                    "technique_name": "Remote Services",
+                    "tactic": "Lateral Movement",
+                    "reason": f"Remote access service detected: {service}"
+                })
+
+            if service in ["http", "https"]:
+                techniques.append({
+                    "technique_id": "T1595",
+                    "technique_name": "Active Scanning",
+                    "tactic": "Reconnaissance",
+                    "reason": f"Web service exposed on port {port}"
+                })
+
+    if isinstance(cve_result, list):
+        for item in cve_result:
+            for cve in item.get("cves", []):
+                severity = str(cve.get("severity", "")).lower()
+
+                if severity in ["critical", "high"]:
+                    techniques.append({
+                        "technique_id": "T1190",
+                        "technique_name": "Exploit Public-Facing Application",
+                        "tactic": "Initial Access",
+                        "reason": f"{severity.title()} CVE found for {item.get('product')}"
+                    })
+
+    unique = []
+    seen = set()
+
+    for tech in techniques:
+        key = (tech["technique_id"], tech["reason"])
+        if key not in seen:
+            unique.append(tech)
+            seen.add(key)
+
+    return unique
